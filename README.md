@@ -220,34 +220,9 @@ def test_fairness_intervention_trigger(usage_distribution, threshold):
 
 ---
 
-## 🤝 Team & Acknowledgments
 
-**Built for**: AI for Bharat Hackathon 2026  
-**Track**: AI for Communities, Access & Public Impact
 
-**Technology Partners:**
-- AWS (IoT Core, Lambda, Bedrock, Polly, DynamoDB)
-- Espressif (ESP32-S3 microcontroller)
-- OpenWeatherMap (weather forecasting API)
 
-**Special Thanks:**
-- Rural farmers in Maharashtra who provided feedback on voice notifications
-- FPO administrators who validated fairness metrics
-- Kiro AI for spec-driven development methodology
-
----
-
-## 📜 License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
----
-
-## 📞 Contact & Demo
-
-**Live Demo**: [Coming Soon]  
-**Documentation**: `.kiro/specs/acoustic-pump-monitor/`  
-**Issues**: [GitHub Issues](https://github.com/your-repo/issues)
 
 **For Judges**: Please review our comprehensive spec documentation in `.kiro/specs/acoustic-pump-monitor/` for detailed architecture, requirements, and testing strategy.
 
