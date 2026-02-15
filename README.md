@@ -1,6 +1,13 @@
+<<<<<<< HEAD
 Jal-Dhwani: The Acoustic Water-Policy Engine 🌊🔊
 "Shazam for Water Pumps"
 Track: AI for Communities, Access & Public Impact
+=======
+Jal-Dhwani: The Acoustic Water-Policy Engine 
+
+
+Track: AI for Rural Innovation & Sustainable Systems
+>>>>>>> a4643592ecc41d1d3d7f731b467a8f0706928f19
 
 Project for: AI for Bharat Hackathon 2026
 
@@ -19,3 +26,11 @@ This project was built using the Kiro Spec-First workflow. You can find our mand
 
 Location: .kiro/specs/acoustic-pump-monitor/
 
+<<<<<<< HEAD
+=======
+Requirements: 15 testable EARS-notation requirements.
+
+Design: 950-line architecture detailing 44 correctness properties.
+
+Tasks: 28-task implementation roadmap.
+>>>>>>> a4643592ecc41d1d3d7f731b467a8f0706928f19
