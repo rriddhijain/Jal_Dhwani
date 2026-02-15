@@ -1,5 +1,6 @@
 Jal-Dhwani: The Acoustic Water-Policy Engine 
-"Shazam for Water Pumps"
+
+
 Track: AI for Rural Innovation & Sustainable Systems
 
 Project for: AI for Bharat Hackathon 2026
