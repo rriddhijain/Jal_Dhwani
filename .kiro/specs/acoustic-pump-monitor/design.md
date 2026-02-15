@@ -1,14 +1,16 @@
 # Design Document: Acoustic Pump Monitor
 
+**Competition Track**: AI for Communities, Access & Public Impact
+
 ## Overview
 
-The Acoustic Pump Monitor is a three-tier edge-AI system that prevents groundwater over-extraction through non-invasive acoustic monitoring. The system architecture consists of:
+The Acoustic Pump Monitor is a three-tier edge-AI system that prevents groundwater over-extraction and ensures community fairness through non-invasive acoustic monitoring. The system architecture consists of:
 
-1. **Edge Layer**: ESP32-S3-based devices with piezoelectric sensors performing real-time FFT analysis and autonomous pump control
-2. **Cloud Layer**: AWS serverless infrastructure (IoT Core, Lambda, DynamoDB, Bedrock, Polly) for AI-driven decision making and data persistence
-3. **Frontend Layer**: React-based admin dashboard for community-level water management
+1. **Edge Layer**: ESP32-S3-based devices with piezoelectric sensors performing real-time FFT analysis, offline AI for resource depletion detection, and autonomous pump control
+2. **Cloud Layer**: AWS serverless infrastructure (IoT Core, Lambda, DynamoDB, Bedrock, Polly) for community-aware AI decision making analyzing Usage + Weather + Community Needs
+3. **Frontend Layer**: React-based admin dashboard for community-level water management with fairness metrics and public impact tracking
 
-The system operates in a closed-loop control architecture: sensors detect cavitation → cloud AI analyzes patterns → autonomous actions are taken → farmers are notified via voice calls.
+The system operates in a closed-loop control architecture optimized for public impact: sensors detect resource depletion → cloud AI analyzes community usage patterns → fairness-aware autonomous actions are taken → farmers are notified via voice calls explaining safety and equity decisions.
 
 ## Architecture
 
@@ -49,10 +51,10 @@ graph TB
 
 ### Data Flow
 
-1. **Monitoring Flow**: Piezo sensor → FFT analysis → Cavitation detection → Local relay control + MQTT telemetry
-2. **AI Analysis Flow**: MQTT telemetry → IoT Core → Ingest Lambda → DynamoDB → Analyze Lambda → Bedrock AI → Control command
-3. **Notification Flow**: Control Lambda → Notify Lambda → Polly TTS → Voice call to farmer
-4. **Dashboard Flow**: Admin request → API Gateway → Query Lambda → DynamoDB → Real-time updates via WebSocket
+1. **Monitoring Flow**: Piezo sensor → FFT analysis → Resource depletion detection (offline AI) → Local relay control + MQTT telemetry with usage data
+2. **AI Analysis Flow**: MQTT telemetry → IoT Core → Ingest Lambda → DynamoDB → Analyze Lambda → Bedrock AI (analyzes Usage + Weather + Community Needs) → Fairness-aware control command
+3. **Notification Flow**: Control Lambda → Notify Lambda → Polly TTS (explains fairness and safety) → Voice call to farmer
+4. **Dashboard Flow**: Admin request → API Gateway → Query Lambda → DynamoDB → Real-time updates via WebSocket with community fairness metrics
 
 ## Components and Interfaces
 
@@ -108,22 +110,23 @@ struct FrequencyPeak {
 
 #### 3. Cavitation Detector
 
-**Algorithm**: Rule-based detection using frequency signature analysis
+**Algorithm**: Rule-based detection using frequency signature analysis with offline AI
 
 **Detection Logic**:
-- Cavitation signature: Elevated energy in 2-10 kHz band
-- Threshold: Energy ratio (cavitation band / baseline) > 2.5
+- Resource depletion signature: Elevated energy in 2-10 kHz band
+- Threshold: Energy ratio (depletion band / baseline) > 2.5
 - Confirmation: 3 consecutive detections to avoid false positives
+- Offline AI: Local decision-making without cloud dependency
 
 **Interface**:
 ```cpp
 enum PumpState {
     PUMP_OFF,
     PUMP_NORMAL,
-    PUMP_CAVITATING
+    PUMP_RESOURCE_DEPLETED
 };
 
-class CavitationDetector {
+class ResourceDepletionDetector {
 public:
     void initialize(float threshold_ratio);
     PumpState detectState(float* frequency_domain);
@@ -146,13 +149,14 @@ public:
 {
   "device_id": "ESP32_ABC123",
   "timestamp": 1704067200,
-  "pump_state": "cavitating",
+  "pump_state": "resource_depleted",
   "fft_peaks": [
     {"frequency_hz": 3500, "magnitude": 0.85},
     {"frequency_hz": 7200, "magnitude": 0.62}
   ],
-  "cavitation_confidence": 0.92,
-  "relay_state": "open"
+  "depletion_confidence": 0.92,
+  "relay_state": "open",
+  "usage_duration_seconds": 3600
 }
 ```
 
@@ -282,10 +286,10 @@ def call_bedrock_ai(telemetry: list, weather: dict) -> dict:
 
 **Bedrock Prompt Template**:
 ```
-You are an irrigation advisor for a farmer in rural India. Analyze the following data and recommend whether the pump should run:
+You are an irrigation advisor for a farmer in rural India, optimizing for both individual needs and community fairness. Analyze the following data and recommend whether the pump should run:
 
 Pump Health (last 24 hours):
-- Cavitation events: {cavitation_count}
+- Resource depletion events: {depletion_count}
 - Total runtime: {runtime_hours} hours
 - Current state: {current_state}
 
@@ -293,13 +297,19 @@ Weather Forecast (next 7 days):
 - Rainfall probability: {rain_probability}%
 - Temperature: {temperature}°C
 
+Community Fairness Context:
+- Village-wide usage distribution: {usage_distribution}
+- This farmer's usage percentile: {farmer_percentile}
+- Community equity index: {equity_index}
+
 Crop Stage: {crop_stage} (if available)
 
-Provide a recommendation in JSON format:
+Provide a recommendation in JSON format that balances individual needs with community fairness:
 {
   "action": "stop|start|delay",
   "duration_minutes": <number>,
-  "reasoning": "<explanation in simple Hindi/English>"
+  "fairness_impact": "positive|neutral|negative",
+  "reasoning": "<explanation in simple Hindi/English including fairness context>"
 }
 ```
 
@@ -337,7 +347,8 @@ def lambda_handler(event, context):
 {
   "command": "stop",
   "duration_minutes": 60,
-  "reason_code": "cavitation_detected",
+  "reason_code": "resource_depleted|fairness_intervention",
+  "fairness_context": "high_usage_farmer",
   "timestamp": 1704067200
 }
 ```
@@ -499,8 +510,9 @@ struct TelemetryMessage {
     PumpState pump_state;
     FrequencyPeak fft_peaks[10];
     uint8_t peak_count;
-    float cavitation_confidence;
+    float depletion_confidence;
     RelayState relay_state;
+    uint32_t usage_duration_seconds;
     float battery_voltage;  // Optional
     int8_t wifi_rssi;
 };
@@ -527,15 +539,35 @@ struct DeviceConfig {
 {
   "device_id": "ESP32_ABC123",
   "timestamp": 1704067200,
-  "pump_state": "cavitating",
+  "pump_state": "resource_depleted",
   "fft_peaks": [
     {"frequency_hz": 3500, "magnitude": 0.85}
   ],
-  "cavitation_confidence": 0.92,
+  "depletion_confidence": 0.92,
   "relay_state": "open",
+  "usage_duration_seconds": 3600,
   "battery_voltage": 3.7,
   "wifi_rssi": -65,
   "ttl": 1767139200
+}
+```
+
+**Community Usage Analytics**:
+```json
+{
+  "village_id": "VILLAGE_001",
+  "date": "2024-01-01",
+  "total_pumps": 25,
+  "active_pumps": 22,
+  "total_usage_hours": 180,
+  "usage_distribution": {
+    "top_20_percent": 85,
+    "middle_60_percent": 75,
+    "bottom_20_percent": 20
+  },
+  "equity_index": 0.65,
+  "resource_stress_level": "moderate",
+  "fairness_interventions": 3
 }
 ```
 
@@ -545,9 +577,10 @@ struct DeviceConfig {
   "device_id": "ESP32_ABC123",
   "command": "stop",
   "duration_minutes": 60,
-  "reason_code": "cavitation_detected",
+  "reason_code": "resource_depleted",
+  "fairness_context": "community_equity_intervention",
   "timestamp": 1704067200,
-  "ai_reasoning": "पंप में कैविटेशन का पता चला है। मोटर को नुकसान से बचाने के लिए 1 घंटे के लिए बंद किया जा रहा है।"
+  "ai_reasoning": "पंप में संसाधन की कमी का पता चला है। मोटर को नुकसान से बचाने और समुदाय में निष्पक्षता सुनिश्चित करने के लिए 1 घंटे के लिए बंद किया जा रहा है।"
 }
 ```
 

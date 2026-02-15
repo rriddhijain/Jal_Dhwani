@@ -1,8 +1,10 @@
 # Technology Stack
 
+**Competition Track**: AI for Communities, Access & Public Impact
+
 ## Architecture Overview
 
-Three-tier system: Edge → Cloud → Frontend
+Three-tier system optimized for community fairness and public impact: Edge → Cloud → Frontend
 
 ## Edge Layer (Hardware)
 
@@ -10,24 +12,26 @@ Three-tier system: Edge → Cloud → Frontend
 - Sensor: Piezoelectric Disc (₹50 vibration sensor)
 - Actuator: 5V Relay Module (pump power control)
 - Language: C++ firmware
-- Processing: On-device FFT (Fast Fourier Transform) for frequency analysis
+- Processing: On-device FFT (Fast Fourier Transform) for resource depletion detection
+- Offline AI: Local detection ensures safety without internet
 - Protocol: MQTT for cloud communication
 
 ## Cloud Layer (AWS)
 
 - Ingestion: AWS IoT Core (MQTT broker)
 - Compute: AWS Lambda (serverless functions)
-- Database: Amazon DynamoDB (acoustic telemetry logs)
-- AI Brain: Amazon Bedrock (Claude 3.5 Sonnet)
-- Voice: Amazon Polly (text-to-speech in local languages)
+- Database: Amazon DynamoDB (acoustic telemetry logs + community usage data)
+- AI Brain: Amazon Bedrock (Claude 3.5 Sonnet) - analyzes Usage + Weather + Community Needs
+- Voice: Amazon Polly (text-to-speech in local languages explaining fairness decisions)
 - Integration: Open-source weather APIs
+- Community Analytics: Village-wide usage patterns for fairness optimization
 
 ## Frontend Layer
 
 - Framework: React.js
 - Styling: Tailwind CSS
 - Target: FPO/Panchayat admin dashboard
-- Features: Village-wide water stress heatmaps, pump status monitoring
+- Features: Village-wide water stress heatmaps, community fairness metrics, equitable usage tracking
 
 ## Key Libraries & Dependencies
 

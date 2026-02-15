@@ -1,23 +1,26 @@
 # Requirements Document: Acoustic Pump Monitor
 
+**Competition Track**: AI for Communities, Access & Public Impact
+
 ## Introduction
 
-Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater over-extraction in rural India. The system uses non-invasive vibration analysis to detect pump cavitation (dry-running), employs generative AI for irrigation scheduling, and provides autonomous pump control with voice-first farmer notifications. The system operates across three tiers: edge devices (ESP32-S3 with piezoelectric sensors), cloud infrastructure (AWS IoT Core, Lambda, Bedrock), and frontend dashboards (React-based admin interface).
+Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater over-extraction and ensures community fairness in rural India. The system uses non-invasive vibration analysis to detect resource depletion, employs generative AI for community-aware irrigation scheduling, and provides autonomous pump control with voice-first farmer notifications explaining fairness decisions. The system operates across three tiers: edge devices (ESP32-S3 with piezoelectric sensors running offline AI), cloud infrastructure (AWS IoT Core, Lambda, Bedrock analyzing Usage + Weather + Community Needs), and frontend dashboards (React-based admin interface with fairness metrics).
 
 ## Glossary
 
-- **Acoustic_Monitor**: The edge device consisting of ESP32-S3 microcontroller, piezoelectric sensor, and relay module
-- **Cavitation**: Formation of air bubbles in pump when well runs dry, causing motor damage
-- **FFT_Processor**: Fast Fourier Transform algorithm running on ESP32-S3 for frequency analysis
-- **Telemetry_Service**: AWS Lambda functions that process pump data
-- **AI_Engine**: Amazon Bedrock (Claude 3.5 Sonnet) that synthesizes pump health, weather, and crop data
-- **Voice_Notifier**: Amazon Polly service for text-to-speech in local languages
-- **Admin_Dashboard**: React-based web interface for FPO/Panchayat administrators
-- **Relay_Controller**: 5V relay module that controls pump power
+- **Acoustic_Monitor**: The edge device consisting of ESP32-S3 microcontroller, piezoelectric sensor, and relay module with offline AI capabilities
+- **Resource_Depletion**: Well water level dropping below sustainable threshold, detected via acoustic signatures (frequency changes in 2-10 kHz range)
+- **FFT_Processor**: Fast Fourier Transform algorithm running on ESP32-S3 for frequency analysis and offline resource depletion detection
+- **Telemetry_Service**: AWS Lambda functions that process pump data and community usage patterns
+- **AI_Engine**: Amazon Bedrock (Claude 3.5 Sonnet) that synthesizes Usage + Weather + Community Needs for fairness-aware decisions
+- **Voice_Notifier**: Amazon Polly service for text-to-speech in local languages explaining fairness and safety decisions
+- **Admin_Dashboard**: React-based web interface for FPO/Panchayat administrators showing community fairness metrics
+- **Relay_Controller**: 5V relay module that controls pump power for safety and fairness
 - **MQTT_Broker**: AWS IoT Core message broker for device-cloud communication
-- **Dry_Running**: Pump operating without sufficient water supply
+- **Community_Fairness**: Equitable water distribution across village farmers based on usage patterns and needs
 - **FPO**: Farmer Producer Organization
 - **Panchayat**: Village-level administrative body
+- **Public_Impact**: Measurable improvement in community water equity and resource sustainability
 
 ## Requirements
 
@@ -33,29 +36,29 @@ Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater ov
 4. THE Acoustic_Monitor SHALL buffer at least 2 seconds of vibration data for FFT analysis
 5. WHEN the pump is powered off, THE Acoustic_Monitor SHALL stop data capture and enter low-power mode
 
-### Requirement 2: Real-Time Cavitation Detection
+### Requirement 2: Real-Time Resource Depletion Detection
 
-**User Story:** As a farmer, I want the system to detect cavitation immediately, so that my pump motor doesn't get damaged.
+**User Story:** As a farmer, I want the system to detect resource depletion immediately, so that my pump motor doesn't get damaged and community water resources are protected.
 
 #### Acceptance Criteria
 
-1. WHEN vibration data is captured, THE FFT_Processor SHALL perform frequency analysis on the ESP32-S3
-2. WHEN the FFT analysis detects frequency signatures characteristic of cavitation (typically 2-10 kHz range), THE Acoustic_Monitor SHALL classify the pump state as "cavitating"
-3. WHEN cavitation is detected, THE Acoustic_Monitor SHALL trigger an immediate pump shutdown within 2 seconds
-4. THE FFT_Processor SHALL distinguish between normal pump operation and cavitation with at least 90% accuracy
-5. WHILE operating offline (no internet), THE Acoustic_Monitor SHALL continue cavitation detection and emergency shutdown
+1. WHEN vibration data is captured, THE FFT_Processor SHALL perform frequency analysis on the ESP32-S3 using offline AI
+2. WHEN the FFT analysis detects frequency signatures characteristic of resource depletion (typically 2-10 kHz range), THE Acoustic_Monitor SHALL classify the pump state as "resource_depleted"
+3. WHEN resource depletion is detected, THE Acoustic_Monitor SHALL trigger an immediate pump shutdown within 2 seconds for safety
+4. THE FFT_Processor SHALL distinguish between normal pump operation and resource depletion with at least 90% accuracy
+5. WHILE operating offline (no internet), THE Acoustic_Monitor SHALL continue resource depletion detection and emergency shutdown
 
 ### Requirement 3: Edge-to-Cloud Telemetry
 
-**User Story:** As a system administrator, I want pump data transmitted to the cloud, so that AI can analyze patterns and optimize irrigation.
+**User Story:** As a system administrator, I want pump data transmitted to the cloud, so that AI can analyze community usage patterns and optimize for fairness.
 
 #### Acceptance Criteria
 
-1. WHEN cavitation is detected, THE Acoustic_Monitor SHALL publish telemetry data to the MQTT_Broker within 5 seconds
-2. WHEN the pump state changes (on/off/cavitating), THE Acoustic_Monitor SHALL publish a state change event via MQTT
-3. WHILE connected to Wi-Fi, THE Acoustic_Monitor SHALL publish periodic health telemetry every 5 minutes
+1. WHEN resource depletion is detected, THE Acoustic_Monitor SHALL publish telemetry data to the MQTT_Broker within 5 seconds
+2. WHEN the pump state changes (on/off/resource_depleted), THE Acoustic_Monitor SHALL publish a state change event via MQTT including usage duration
+3. WHILE connected to Wi-Fi, THE Acoustic_Monitor SHALL publish periodic health telemetry and usage metrics every 5 minutes
 4. WHEN MQTT connection fails, THE Acoustic_Monitor SHALL buffer telemetry locally and retry transmission every 30 seconds
-5. THE Acoustic_Monitor SHALL include device ID, timestamp, pump state, FFT frequency peaks, and sensor readings in telemetry messages
+5. THE Acoustic_Monitor SHALL include device ID, timestamp, pump state, FFT frequency peaks, usage duration, and sensor readings in telemetry messages
 
 ### Requirement 4: Cloud Data Ingestion
 
@@ -69,17 +72,17 @@ Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater ov
 4. THE Telemetry_Service SHALL process incoming telemetry within 1 second of receipt
 5. WHEN telemetry is stored, THE Telemetry_Service SHALL trigger downstream analysis functions
 
-### Requirement 5: AI-Driven Irrigation Scheduling
+### Requirement 5: Community-Aware AI Irrigation Scheduling
 
-**User Story:** As a farmer, I want AI to decide when I should irrigate, so that I don't waste water or damage my crops.
+**User Story:** As a farmer, I want AI to decide when I should irrigate considering both my needs and community fairness, so that water is distributed equitably.
 
 #### Acceptance Criteria
 
-1. WHEN pump telemetry indicates repeated cavitation events, THE AI_Engine SHALL analyze pump health trends
-2. WHEN generating irrigation recommendations, THE AI_Engine SHALL synthesize pump health data, weather forecasts, and crop water requirements
-3. WHEN the AI_Engine determines irrigation should be delayed, THE AI_Engine SHALL generate a pump control command with reasoning
-4. THE AI_Engine SHALL provide recommendations in structured format including action (start/stop/delay), duration, and natural language explanation
-5. WHEN weather forecasts predict rain within 24 hours, THE AI_Engine SHALL factor this into irrigation scheduling
+1. WHEN pump telemetry indicates repeated resource depletion events, THE AI_Engine SHALL analyze village-wide usage patterns and resource health
+2. WHEN generating irrigation recommendations, THE AI_Engine SHALL synthesize Usage + Weather + Community Needs (pump health data, weather forecasts, and village-wide usage fairness metrics)
+3. WHEN the AI_Engine determines irrigation should be delayed for fairness or safety, THE AI_Engine SHALL generate a pump control command with community-aware reasoning
+4. THE AI_Engine SHALL provide recommendations in structured format including action (start/stop/delay), duration, fairness impact, and natural language explanation
+5. WHEN weather forecasts predict rain within 24 hours OR community usage is imbalanced, THE AI_Engine SHALL factor this into irrigation scheduling
 
 ### Requirement 6: Autonomous Pump Control
 
@@ -93,40 +96,40 @@ Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater ov
 4. WHEN executing a "start" command, THE Relay_Controller SHALL close the relay to restore pump power
 5. WHEN a control command is executed, THE Acoustic_Monitor SHALL publish a confirmation message to the MQTT_Broker
 
-### Requirement 7: Voice-First Farmer Notifications
+### Requirement 7: Voice-First Farmer Notifications with Fairness Context
 
-**User Story:** As a farmer, I want to receive voice calls in my local language explaining why the pump was stopped, so that I understand what's happening.
+**User Story:** As a farmer, I want to receive voice calls in my local language explaining why the pump was stopped and how it relates to community fairness, so that I understand both safety and equity concerns.
 
 #### Acceptance Criteria
 
-1. WHEN the pump is automatically stopped, THE Voice_Notifier SHALL generate a voice message in the farmer's configured language
-2. WHEN generating voice messages, THE Voice_Notifier SHALL use the AI_Engine's natural language explanation
+1. WHEN the pump is automatically stopped for fairness or safety, THE Voice_Notifier SHALL generate a voice message in the farmer's configured language
+2. WHEN generating voice messages, THE Voice_Notifier SHALL use the AI_Engine's natural language explanation including fairness reasoning and community impact
 3. THE Voice_Notifier SHALL support Hindi, Tamil, Telugu, and Marathi languages
 4. WHEN a voice message is generated, THE Voice_Notifier SHALL initiate a phone call to the farmer's registered number
-5. WHEN the farmer answers, THE Voice_Notifier SHALL play the synthesized voice message explaining the pump action
+5. WHEN the farmer answers, THE Voice_Notifier SHALL play the synthesized voice message explaining the pump action, safety concerns, and community fairness considerations
 
-### Requirement 8: Community Water Stress Dashboard
+### Requirement 8: Community Fairness Dashboard with Public Impact Metrics
 
-**User Story:** As a Panchayat administrator, I want to see village-wide water stress patterns, so that I can coordinate community water management.
-
-#### Acceptance Criteria
-
-1. WHEN an administrator accesses the Admin_Dashboard, THE Admin_Dashboard SHALL display a map of all pumps in the village
-2. WHEN displaying pump locations, THE Admin_Dashboard SHALL color-code pumps based on cavitation frequency (green/yellow/red heatmap)
-3. WHEN an administrator selects a pump, THE Admin_Dashboard SHALL show detailed telemetry including cavitation events, runtime hours, and AI recommendations
-4. THE Admin_Dashboard SHALL update pump status in real-time as telemetry arrives
-5. WHEN multiple pumps show high cavitation rates, THE Admin_Dashboard SHALL highlight the area as a water-stressed zone
-
-### Requirement 9: Offline Edge Safety
-
-**User Story:** As a farmer in an area with unreliable internet, I want critical safety features to work offline, so that my pump is protected even without connectivity.
+**User Story:** As a Panchayat administrator, I want to see village-wide water stress patterns and fairness metrics, so that I can coordinate equitable community water management and measure public impact.
 
 #### Acceptance Criteria
 
-1. WHILE the Acoustic_Monitor has no internet connection, THE Acoustic_Monitor SHALL continue cavitation detection using local FFT analysis
-2. WHILE operating offline, THE Acoustic_Monitor SHALL execute emergency pump shutdown when cavitation is detected
-3. WHEN internet connectivity is restored, THE Acoustic_Monitor SHALL upload buffered telemetry to the cloud
-4. THE Acoustic_Monitor SHALL store at least 24 hours of telemetry locally when offline
+1. WHEN an administrator accesses the Admin_Dashboard, THE Admin_Dashboard SHALL display a map of all pumps in the village with fairness metrics
+2. WHEN displaying pump locations, THE Admin_Dashboard SHALL color-code pumps based on resource depletion frequency and usage fairness (green/yellow/red heatmap)
+3. WHEN an administrator selects a pump, THE Admin_Dashboard SHALL show detailed telemetry including resource depletion events, runtime hours, usage fairness score, and AI recommendations
+4. THE Admin_Dashboard SHALL update pump status and community fairness metrics in real-time as telemetry arrives
+5. WHEN multiple pumps show high resource depletion rates OR usage imbalance, THE Admin_Dashboard SHALL highlight the area as a water-stressed zone requiring fairness intervention
+
+### Requirement 9: Offline Edge Safety with Local AI
+
+**User Story:** As a farmer in an area with unreliable internet, I want critical safety features to work offline using local AI, so that my pump is protected even without connectivity.
+
+#### Acceptance Criteria
+
+1. WHILE the Acoustic_Monitor has no internet connection, THE Acoustic_Monitor SHALL continue resource depletion detection using local FFT analysis and offline AI
+2. WHILE operating offline, THE Acoustic_Monitor SHALL execute emergency pump shutdown when resource depletion is detected for safety
+3. WHEN internet connectivity is restored, THE Acoustic_Monitor SHALL upload buffered telemetry and usage data to the cloud for community fairness analysis
+4. THE Acoustic_Monitor SHALL store at least 24 hours of telemetry and usage metrics locally when offline
 5. WHEN local storage is full, THE Acoustic_Monitor SHALL overwrite the oldest telemetry data
 
 ### Requirement 10: Low-Cost Hardware Design
@@ -200,4 +203,16 @@ Jal Dhwani is an edge-AI acoustic monitoring system that prevents groundwater ov
 3. WHEN device health metrics indicate low battery or weak signal, THE Admin_Dashboard SHALL display a warning
 4. WHEN a device hasn't reported for 1 hour, THE Admin_Dashboard SHALL mark it as "offline"
 5. THE Telemetry_Service SHALL track device uptime and generate availability reports
+
+### Requirement 16: Community Fairness Metrics and Public Impact Tracking
+
+**User Story:** As a Panchayat administrator, I want to track community-level fairness metrics and public impact, so that I can ensure equitable water distribution and measure social outcomes.
+
+#### Acceptance Criteria
+
+1. WHEN analyzing village-wide data, THE AI_Engine SHALL calculate fairness scores based on usage distribution across all farmers
+2. THE Admin_Dashboard SHALL display community fairness metrics including usage variance, equity index, and resource sustainability indicators
+3. WHEN usage imbalance exceeds threshold (top 20% farmers using >40% of water), THE Admin_Dashboard SHALL alert administrators
+4. THE Telemetry_Service SHALL track public impact metrics including water saved, equitable access improvements, and community sustainability scores
+5. THE Admin_Dashboard SHALL generate monthly public impact reports showing fairness trends and resource conservation outcomes
 

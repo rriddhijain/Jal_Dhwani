@@ -1,8 +1,10 @@
 # Implementation Plan: Acoustic Pump Monitor
 
+**Competition Track**: AI for Communities, Access & Public Impact
+
 ## Overview
 
-This implementation plan breaks down the Acoustic Pump Monitor system into three parallel development tracks: Edge (ESP32-S3 firmware in C++), Cloud (AWS Lambda functions in Python), and Frontend (React dashboard). The plan follows an incremental approach where each component is built with testing integrated throughout, culminating in end-to-end integration.
+This implementation plan breaks down the Acoustic Pump Monitor system into three parallel development tracks: Edge (ESP32-S3 firmware with offline AI in C++), Cloud (AWS Lambda functions analyzing Usage + Weather + Community Needs in Python), and Frontend (React dashboard with fairness metrics). The plan follows an incremental approach where each component is built with testing integrated throughout, culminating in end-to-end integration focused on community fairness and public impact.
 
 ## Tasks
 
@@ -13,7 +15,7 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
   - Configure platformio.ini with ESP32-S3 board settings
   - Add ESP-DSP library for FFT processing
   - Add MQTT client library (PubSubClient or AWS IoT SDK)
-  - Create header files for core interfaces (PiezoSensor, FFTProcessor, CavitationDetector, RelayController, MQTTClient)
+  - Create header files for core interfaces (PiezoSensor, FFTProcessor, ResourceDepletionDetector, RelayController, MQTTClient)
   - _Requirements: 1.1, 1.2, 2.1, 3.1, 6.2, 14.1_
 
 - [ ] 2. Implement piezoelectric sensor interface
@@ -38,7 +40,7 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Test that saturated ADC values (0 or 4095) are logged and monitoring continues
     - _Requirements: 1.3_
 
-- [ ] 3. Implement FFT processor and cavitation detector
+- [ ] 3. Implement FFT processor and resource depletion detector with offline AI
   - [ ] 3.1 Create FFTProcessor class using ESP-DSP
     - Implement initialize() to allocate FFT buffers
     - Implement computeFFT() using dsps_fft2r_fc32 (ESP-DSP function)
@@ -47,16 +49,17 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Implement getEnergyInBand() to calculate energy in frequency range
     - _Requirements: 2.1, 2.2_
   
-  - [ ] 3.2 Create CavitationDetector class with rule-based detection
-    - Implement detectState() using energy ratio threshold (cavitation band / baseline > 2.5)
+  - [ ] 3.2 Create ResourceDepletionDetector class with offline AI rule-based detection
+    - Implement detectState() using energy ratio threshold (depletion band / baseline > 2.5)
     - Implement updateBaseline() to learn normal pump operation during first 60 seconds
-    - Require 3 consecutive detections to confirm cavitation (avoid false positives)
-    - _Requirements: 2.2_
+    - Require 3 consecutive detections to confirm resource depletion (avoid false positives)
+    - Ensure offline AI operates without cloud dependency
+    - _Requirements: 2.2, 9.1_
   
-  - [ ]* 3.3 Write property test for cavitation classification
-    - **Property 3: Cavitation Classification Correctness**
+  - [ ]* 3.3 Write property test for resource depletion classification
+    - **Property 3: Resource Depletion Classification Correctness**
     - **Validates: Requirements 2.2**
-    - Generate FFT spectra with elevated 2-10 kHz energy, verify "cavitating" classification
+    - Generate FFT spectra with elevated 2-10 kHz energy, verify "resource_depleted" classification
   
   - [ ]* 3.4 Write unit tests for FFT edge cases
     - Test with all-zero input (silent pump)
@@ -90,9 +93,9 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Implement connection retry logic with exponential backoff
     - _Requirements: 3.1, 3.2, 6.1_
   
-  - [ ] 5.2 Implement telemetry message serialization
+  - [ ] 5.2 Implement telemetry message serialization with usage tracking
     - Create JSON serialization for TelemetryMessage struct
-    - Include device_id, timestamp, pump_state, fft_peaks, cavitation_confidence, relay_state
+    - Include device_id, timestamp, pump_state, fft_peaks, depletion_confidence, relay_state, usage_duration_seconds
     - _Requirements: 3.5_
   
   - [ ]* 5.3 Write property test for telemetry schema compliance
@@ -178,11 +181,12 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
 - [ ] 10. Set up AWS infrastructure with SAM template
   - Create AWS SAM template.yaml defining all resources
   - Define DynamoDB table: jal-dhwani-telemetry (partition key: device_id, sort key: timestamp, TTL: 2 years)
+  - Define DynamoDB table: jal-dhwani-community-usage (partition key: village_id, sort key: date) for fairness analytics
   - Define IoT Core thing type and policy for device authentication
-  - Define Lambda functions: ingest, analyze, control, notify, query
+  - Define Lambda functions: ingest, analyze, control, notify, query, community-analytics
   - Define API Gateway for frontend REST API
   - Configure IAM roles and permissions
-  - _Requirements: 4.1, 4.2, 12.1_
+  - _Requirements: 4.1, 4.2, 12.1, 16.1_
 
 - [ ] 11. Implement ingest Lambda function
   - [ ] 11.1 Create ingest Lambda with telemetry validation
@@ -208,14 +212,16 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - **Validates: Requirements 4.3**
     - Generate malformed messages, verify rejection and error logging
 
-- [ ] 12. Implement analyze Lambda function with Bedrock AI
-  - [ ] 12.1 Create analyze Lambda with AI integration
+- [ ] 12. Implement analyze Lambda function with community-aware Bedrock AI
+  - [ ] 12.1 Create analyze Lambda with community fairness integration
     - Query recent telemetry for device (last 24 hours)
+    - Query village-wide usage patterns from community-usage table
+    - Calculate farmer's usage percentile and community equity index
     - Fetch weather forecast from OpenWeatherMap API
-    - Call Amazon Bedrock (Claude 3.5 Sonnet) with prompt template
-    - Parse AI response (JSON with action, duration, reasoning)
-    - Invoke control Lambda with recommendation
-    - _Requirements: 5.1, 5.2, 5.3, 13.1, 13.2_
+    - Call Amazon Bedrock (Claude 3.5 Sonnet) with prompt template including Usage + Weather + Community Needs
+    - Parse AI response (JSON with action, duration, fairness_impact, reasoning)
+    - Invoke control Lambda with fairness-aware recommendation
+    - _Requirements: 5.1, 5.2, 5.3, 13.1, 13.2, 16.1_
   
   - [ ] 12.2 Implement weather API integration with caching
     - Query OpenWeatherMap API with device coordinates
@@ -223,15 +229,15 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Implement fallback logic for API failures
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
   
-  - [ ]* 12.3 Write property test for AI input completeness
+  - [ ]* 12.3 Write property test for AI input completeness with community data
     - **Property 14: AI Input Completeness**
     - **Validates: Requirements 5.2**
-    - Verify both pump telemetry and weather data queried before AI call
+    - Verify pump telemetry, weather data, AND community usage patterns queried before AI call
   
-  - [ ]* 12.4 Write property test for AI output structure
+  - [ ]* 12.4 Write property test for AI output structure with fairness
     - **Property 15: AI Output Structure**
     - **Validates: Requirements 5.3, 5.4**
-    - Verify AI response contains action, duration_minutes, reasoning
+    - Verify AI response contains action, duration_minutes, fairness_impact, reasoning
   
   - [ ]* 12.5 Write property test for weather API fallback
     - **Property 36: Weather API Fallback**
@@ -256,11 +262,11 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - **Validates: Requirements 6.1**
     - Generate AI commands, verify MQTT messages published to device topics
 
-- [ ] 14. Implement notify Lambda function with Polly
-  - [ ] 14.1 Create notify Lambda with voice generation
-    - Receive device_id and reasoning text
+- [ ] 14. Implement notify Lambda function with Polly for fairness explanations
+  - [ ] 14.1 Create notify Lambda with voice generation explaining fairness
+    - Receive device_id and reasoning text (including fairness context)
     - Query device configuration for farmer phone and language
-    - Call Amazon Polly to synthesize speech (support hi-IN, ta-IN, te-IN, mr-IN)
+    - Call Amazon Polly to synthesize speech explaining safety AND community fairness (support hi-IN, ta-IN, te-IN, mr-IN)
     - Store audio file in S3
     - Initiate phone call using Twilio or Amazon Connect
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
@@ -268,24 +274,25 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
   - [ ]* 14.2 Write property test for voice notification generation
     - **Property 20: Voice Notification Generation**
     - **Validates: Requirements 7.1**
-    - Simulate pump stop events, verify voice messages generated
+    - Simulate pump stop events (safety and fairness), verify voice messages generated
   
   - [ ]* 14.3 Write property test for multi-language support
     - **Property 22: Multi-Language Support**
     - **Validates: Requirements 7.3**
     - For each language {hi, ta, te, mr}, verify Polly generates speech
   
-  - [ ]* 14.4 Write unit test for voice message content
-    - Verify generated message contains AI reasoning text
+  - [ ]* 14.4 Write unit test for voice message content with fairness
+    - Verify generated message contains AI reasoning text including fairness context
     - _Requirements: 7.2_
 
-- [ ] 15. Implement query Lambda function for dashboard API
-  - [ ] 15.1 Create query Lambda with multiple query types
+- [ ] 15. Implement query Lambda function for dashboard API with fairness metrics
+  - [ ] 15.1 Create query Lambda with multiple query types including community analytics
     - Implement device_status query (latest telemetry for device)
-    - Implement village_heatmap query (all devices in village with cavitation stats)
+    - Implement village_heatmap query (all devices in village with resource depletion stats and fairness scores)
     - Implement telemetry_history query (time range for device)
     - Implement health_metrics query (device uptime and availability)
-    - _Requirements: 8.1, 8.2, 12.2, 15.5_
+    - Implement community_fairness query (village-wide equity metrics and public impact)
+    - _Requirements: 8.1, 8.2, 12.2, 15.5, 16.2_
   
   - [ ]* 15.2 Write property test for query parameter support
     - **Property 31: Query Parameter Support**
@@ -342,36 +349,38 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Test error handling for network failures
     - _Requirements: 8.1_
 
-- [ ] 20. Implement PumpMap component with heatmap
-  - [ ] 20.1 Create PumpMap component using react-leaflet
+- [ ] 20. Implement PumpMap component with fairness heatmap
+  - [ ] 20.1 Create PumpMap component using react-leaflet with fairness visualization
     - Display map centered on village coordinates
-    - Render markers for each pump with color-coded status
-    - Implement color logic: green (F < 2/day), yellow (2 ≤ F < 5/day), red (F ≥ 5/day)
-    - Highlight water-stressed zones (≥3 red pumps in area)
-    - _Requirements: 8.1, 8.2, 8.5_
+    - Render markers for each pump with color-coded status (resource depletion + fairness)
+    - Implement color logic: green (F < 2/day, fair usage), yellow (2 ≤ F < 5/day OR moderate usage), red (F ≥ 5/day OR high usage)
+    - Highlight water-stressed zones (≥3 red pumps in area OR usage imbalance)
+    - Display community fairness overlay showing equity distribution
+    - _Requirements: 8.1, 8.2, 8.5, 16.2_
   
-  - [ ]* 20.2 Write property test for pump color coding
+  - [ ]* 20.2 Write property test for pump color coding with fairness
     - **Property 24: Pump Color Coding Logic**
     - **Validates: Requirements 8.2**
-    - Generate random cavitation frequencies, verify correct colors assigned
+    - Generate random resource depletion frequencies and usage scores, verify correct colors assigned
   
-  - [ ]* 20.3 Write property test for water-stressed zone detection
+  - [ ]* 20.3 Write property test for water-stressed zone detection with fairness
     - **Property 27: Water-Stressed Zone Detection**
     - **Validates: Requirements 8.5**
-    - Generate pump clusters, verify zones highlighted when ≥3 pumps have F ≥ 5/day
+    - Generate pump clusters, verify zones highlighted when ≥3 pumps have F ≥ 5/day OR usage imbalance
 
-- [ ] 21. Implement PumpCard component for detailed view
-  - [ ] 21.1 Create PumpCard component
-    - Display device_id, pump_state, runtime_hours, cavitation_count
+- [ ] 21. Implement PumpCard component for detailed view with fairness metrics
+  - [ ] 21.1 Create PumpCard component with fairness information
+    - Display device_id, pump_state, runtime_hours, resource_depletion_count
+    - Display usage_fairness_score and community_percentile
     - Display last_seen timestamp
-    - Display AI recommendations
+    - Display AI recommendations including fairness context
     - Add "View Details" button to open full telemetry history
-    - _Requirements: 8.3_
+    - _Requirements: 8.3, 16.2_
   
-  - [ ]* 21.2 Write property test for pump detail completeness
+  - [ ]* 21.2 Write property test for pump detail completeness with fairness
     - **Property 25: Pump Detail Completeness**
     - **Validates: Requirements 8.3**
-    - Generate random pump data, verify all required fields displayed
+    - Generate random pump data with fairness metrics, verify all required fields displayed
 
 - [ ] 22. Implement real-time updates with WebSocket
   - [ ] 22.1 Create WebSocket connection manager
@@ -403,9 +412,9 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - **Validates: Requirements 15.4**
     - Generate devices with no recent telemetry, verify "offline" status
 
-- [ ] 24. Implement telemetry history and analytics
+- [ ] 24. Implement telemetry history, analytics, and public impact tracking
   - [ ] 24.1 Create TelemetryChart component
-    - Display time-series graph of cavitation events
+    - Display time-series graph of resource depletion events
     - Display runtime hours over time
     - Display pump state transitions
     - Allow date range selection
@@ -416,7 +425,14 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Show availability trends over time
     - _Requirements: 15.5_
   
-  - [ ]* 24.3 Write property test for uptime calculation
+  - [ ] 24.3 Create CommunityFairnessReport component
+    - Display village-wide equity index over time
+    - Show usage distribution (top/middle/bottom percentiles)
+    - Display public impact metrics (water saved, fairness improvements)
+    - Generate monthly reports with sustainability scores
+    - _Requirements: 16.2, 16.4, 16.5_
+  
+  - [ ]* 24.4 Write property test for uptime calculation
     - **Property 44: Uptime Calculation**
     - **Validates: Requirements 15.5**
     - Generate random telemetry history, verify uptime = (online_time / total_time) × 100
@@ -458,46 +474,48 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
     - Verify dashboard shows pump as "normal" (green)
     - _Requirements: 1.1, 2.2, 3.1, 8.2_
   
-  - [ ] 27.2 Test cavitation detection and emergency shutdown
-    - Simulate cavitation (run pump dry or use test signal)
-    - Verify cavitation detected within 2 seconds
-    - Verify relay opens to stop pump
-    - Verify telemetry shows "cavitating" state
-    - Verify dashboard shows pump as "cavitating" (red)
+  - [ ] 27.2 Test resource depletion detection and emergency shutdown
+    - Simulate resource depletion (run pump dry or use test signal)
+    - Verify resource depletion detected within 2 seconds using offline AI
+    - Verify relay opens to stop pump for safety
+    - Verify telemetry shows "resource_depleted" state
+    - Verify dashboard shows pump as "resource_depleted" (red)
     - _Requirements: 2.2, 2.3, 6.3, 8.2_
   
-  - [ ] 27.3 Test AI-driven irrigation scheduling
-    - Trigger analyze Lambda with repeated cavitation events
-    - Verify Bedrock AI generates recommendation
-    - Verify control command sent to device
-    - Verify pump controlled according to AI decision
+  - [ ] 27.3 Test community-aware AI irrigation scheduling
+    - Trigger analyze Lambda with repeated resource depletion events and usage imbalance
+    - Verify Bedrock AI generates recommendation considering Usage + Weather + Community Needs
+    - Verify control command includes fairness context
+    - Verify pump controlled according to fairness-aware AI decision
     - _Requirements: 5.2, 5.3, 6.1, 6.2_
   
-  - [ ] 27.4 Test voice notification delivery
-    - Trigger automatic pump stop
-    - Verify Polly generates voice message in configured language
+  - [ ] 27.4 Test voice notification delivery with fairness explanations
+    - Trigger automatic pump stop (safety and fairness reasons)
+    - Verify Polly generates voice message in configured language explaining both safety and community fairness
     - Verify phone call initiated to farmer
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
   
-  - [ ] 27.5 Test offline operation
+  - [ ] 27.5 Test offline operation with local AI
     - Disconnect device from Wi-Fi
-    - Simulate cavitation
-    - Verify local detection and shutdown still work
+    - Simulate resource depletion
+    - Verify local offline AI detection and shutdown still work
     - Reconnect Wi-Fi
-    - Verify buffered telemetry uploaded
+    - Verify buffered telemetry and usage data uploaded
     - _Requirements: 9.1, 9.2, 9.3_
   
-  - [ ] 27.6 Test dashboard real-time updates
-    - Trigger pump state changes
-    - Verify dashboard updates within 1 second
+  - [ ] 27.6 Test dashboard real-time updates with fairness metrics
+    - Trigger pump state changes and usage updates
+    - Verify dashboard updates within 1 second including fairness scores
     - Test with multiple simultaneous devices
-    - _Requirements: 8.4_
+    - Verify community fairness metrics update correctly
+    - _Requirements: 8.4, 16.2_
 
-- [ ] 28. Final checkpoint - System validation
+- [ ] 28. Final checkpoint - System validation with public impact assessment
   - Verify all 44 correctness properties pass
-  - Verify all functional requirements met
+  - Verify all functional requirements met including community fairness (Requirement 16)
   - Verify system operates within cost constraints (₹700 BOM)
   - Verify installation time <10 minutes
+  - Validate public impact metrics: community equity index, usage fairness, resource sustainability
   - Document any known issues or limitations
   - Ensure all tests pass, ask the user if questions arise.
 
@@ -509,5 +527,6 @@ This implementation plan breaks down the Acoustic Pump Monitor system into three
 - Checkpoints ensure incremental validation at component and system levels
 - Property tests validate universal correctness properties across all inputs
 - Unit tests validate specific examples, edge cases, and integration points
-- End-to-end testing validates the complete closed-loop control system
+- End-to-end testing validates the complete closed-loop control system with community fairness optimization
+- Public impact focus: All components prioritize community equity and resource sustainability alongside individual farmer needs
 
